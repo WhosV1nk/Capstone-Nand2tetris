@@ -1,0 +1,47 @@
+// CPU.hdl
+// Hack CPU: executes A-instructions and C-instructions.
+// Depends on the standard Nand2Tetris ALU, ARegister, DRegister and PC chips.
+
+CHIP CPU {
+    IN  inM[16], instruction[16], reset;
+    OUT outM[16], writeM, addressM[15], pc[15];
+
+    PARTS:
+    // A-instructions load the instruction value into A.
+    // C-instructions load A when the A destination bit is set.
+    Not(in=instruction[15], out=isAInstruction);
+    And(a=instruction[15], b=instruction[5], out=writeAFromC);
+    Or(a=isAInstruction, b=writeAFromC, out=loadA);
+
+    // Select instruction value for A on A-instructions, ALU result otherwise.
+    Mux16(a=aluOut, b=instruction, sel=isAInstruction, out=aInput);
+    ARegister(in=aInput, load=loadA, out=aOut, out[0..14]=addressM);
+
+    // D register is written only by C-instructions with destination bit d2.
+    And(a=instruction[15], b=instruction[4], out=loadD);
+    DRegister(in=aluOut, load=loadD, out=dOut);
+
+    // ALU y-input is A or memory, selected by the a-bit.
+    Mux16(a=aOut, b=inM, sel=instruction[12], out=aluY);
+    ALU(x=dOut, y=aluY,
+        zx=instruction[11], nx=instruction[10],
+        zy=instruction[9],  ny=instruction[8],
+        f=instruction[7],   no=instruction[6],
+        out=aluOut, out=outM, zr=zr, ng=ng);
+
+    // Memory write occurs for C-instructions with destination bit d3.
+    And(a=instruction[15], b=instruction[3], out=writeM);
+
+    // Decode jump condition from ALU flags and instruction jump bits.
+    Not(in=zr, out=notZr);
+    Not(in=ng, out=notNg);
+    And(a=notNg, b=notZr, out=positive);
+    And(a=instruction[0], b=positive, out=jumpGT);
+    And(a=instruction[1], b=zr, out=jumpEQ);
+    And(a=instruction[2], b=ng, out=jumpLT);
+    Or(a=jumpEQ, b=jumpLT, out=jumpPart);
+    Or(a=jumpPart, b=jumpGT, out=jumpCondition);
+    And(a=instruction[15], b=jumpCondition, out=loadPC);
+
+    PC(in=aOut, load=loadPC, inc=true, reset=reset, out[0..14]=pc);
+}

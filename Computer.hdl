@@ -1,0 +1,13 @@
+// Computer.hdl
+// Complete Hack computer: CPU connected to memory and ROM32K.
+// Depends on standard CPU, Memory and ROM32K chips.
+
+CHIP Computer {
+    IN reset;
+
+    PARTS:
+    ROM32K(address=pc, out=instruction);
+    CPU(inM=memoryOut, instruction=instruction, reset=reset,
+        outM=memoryIn, writeM=writeMemory, addressM=memoryAddress, pc=pc);
+    Memory(in=memoryIn, load=writeMemory, address=memoryAddress, out=memoryOut);
+}
